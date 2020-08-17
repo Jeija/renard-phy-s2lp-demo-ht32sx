@@ -1,0 +1,6 @@
+build
+gdb
+lib/renard-phy-s2lp/obj
+lib/renard-phy-s2lp/renard-phy-s2lp.a
+lib/renard-phy-s2lp-hal-stm32/obj
+lib/renard-phy-s2lp-hal-stm32/renard-phy-s2lp-hal-stm32.a

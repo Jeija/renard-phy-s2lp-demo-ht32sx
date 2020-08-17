@@ -1,0 +1,20 @@
+Shutdown: PB8
+#define S2LP_M2S_SDN_PORT                       GPIOB// JRF GPIOA
+#define S2LP_M2S_SDN_PIN                        GPIO_PIN_8
+
+S2-LP's GPIO3: PA0
+#define M2S_GPIO_IRQ_PORT                       GPIOA//JRF GPIOC
+#define M2S_GPIO_IRQ_PIN                        GPIO_PIN_0
+
+S2-LP's CS: PA15
+#define S2LP_SPI_CS_PORT                        GPIOA
+#define S2LP_SPI_CS_PIN                         GPIO_PIN_15//JRF GPIO_PIN_1
+
+S2-LP's SPI:
+MOSI PA7
+MISO PB4
+SCLK PB3
+
+see: S2LP_Nucleo64_STM32_L0xx_AUTO.h
+
+FEM: S2LP_EVAL_FEM_AUTO.c
