@@ -1,7 +1,7 @@
 ######################################
 # target
 ######################################
-TARGET = blinky-ht32sx
+TARGET = renard-phy-s2lp-demo-ht32sx
 
 ######################################
 # building variables
@@ -31,6 +31,18 @@ $(wildcard $(LIBDIR_APP)/stm32lib/STM32L0xx_HAL_Driver/Src/*.c) \
 $(LIBDIR_APP)/stm32lib/CMSIS/STM32L0xx/Source/Templates/system_stm32l0xx.c
 
 ASM_SOURCES = $(LIBDIR_APP)/stm32lib/CMSIS/STM32L0xx/Source/Templates/gcc/startup_stm32l053xx.s
+
+#######################################
+# renard-phy-s2lp
+#######################################
+RENARD_PHY_S2LP_DIR := $(LIBDIR_APP)/renard-phy-s2lp/
+RENARD_PHY_S2LP := $(RENARD_PHY_S2LP_DIR)renard-phy-s2lp.a
+
+#######################################
+# renard-phy-s2lp-hal-stm32
+#######################################
+RENARD_PHY_S2LP_HAL_STM32_DIR := $(LIBDIR_APP)/renard-phy-s2lp-hal-stm32/
+RENARD_PHY_S2LP_HAL_STM32 := $(RENARD_PHY_S2LP_HAL_STM32_DIR)renard-phy-s2lp-hal-stm32.a
 
 #######################################
 # binaries
@@ -66,7 +78,7 @@ ARCH_MCU = -mcpu=cortex-m0plus -mthumb $(FLOAT-ABI) --specs=nano.specs
 ARCHFLAGS = $(ARCH_DEFS) $(ARCH_INCLUDES) $(ARCH_MCU)
 
 # C includes
-C_INCLUDES = $(ARCH_INCLUDES)
+C_INCLUDES = $(ARCH_INCLUDES) -I$(LIBDIR_APP)/renard-phy-s2lp/src -I$(LIBDIR_APP)/renard-phy-s2lp/librenard/src
 
 # compile gcc flags
 ASFLAGS = $(ARCH_MCU) $(OPT) -Wall -fdata-sections -ffunction-sections
@@ -109,14 +121,20 @@ vpath %.c $(sort $(dir $(C_SOURCES)))
 OBJECTS += $(addprefix $(BUILD_DIR)/,$(notdir $(ASM_SOURCES:.s=.o)))
 vpath %.s $(sort $(dir $(ASM_SOURCES)))
 
+$(RENARD_PHY_S2LP):
+	$(MAKE) -C $(RENARD_PHY_S2LP_DIR) CC=$(CC) AR=$(AR) ARCHFLAGS="$(ARCHFLAGS)"
+
+$(RENARD_PHY_S2LP_HAL_STM32):
+	$(MAKE) -C $(RENARD_PHY_S2LP_HAL_STM32_DIR) CC=$(CC) AR=$(AR) ARCHFLAGS="$(ARCHFLAGS)"
+
 $(BUILD_DIR)/%.o: %.c Makefile | $(BUILD_DIR)
 	$(CC) -c $(CFLAGS) -Wa,-a,-ad,-alms=$(BUILD_DIR)/$(notdir $(<:.c=.lst)) $< -o $@
 
 $(BUILD_DIR)/%.o: %.s Makefile | $(BUILD_DIR)
 	$(AS) -c $(CFLAGS) $< -o $@
 
-$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) Makefile
-	$(CC) $(OBJECTS) $(LDFLAGS) -o $@
+$(BUILD_DIR)/$(TARGET).elf: $(OBJECTS) $(RENARD_PHY_S2LP) $(RENARD_PHY_S2LP_HAL_STM32) Makefile
+	$(CC) $(OBJECTS) $(RENARD_PHY_S2LP) $(RENARD_PHY_S2LP_HAL_STM32) $(LDFLAGS) -o $@
 	$(SZ) $@
 
 $(BUILD_DIR)/%.hex: $(BUILD_DIR)/%.elf | $(BUILD_DIR)
@@ -163,12 +181,16 @@ gdb-debug: $(GDBCFG_DIR)
 # clean up
 #######################################
 clean:
+	$(MAKE) -C $(RENARD_PHY_S2LP_DIR) clean
+	$(MAKE) -C $(RENARD_PHY_S2LP_HAL_STM32_DIR) clean
 	-rm -fR $(BUILD_DIR)
 	-rm -fR $(GDBCFG_DIR)
 
 #######################################
 # dependencies
 #######################################
+.PHONY: $(RENARD_PHY_S2LP) $(RENARD_PHY_S2LP_HAL_STM32)
+
 -include $(wildcard $(BUILD_DIR)/*.d)
 
 # *** EOF ***
