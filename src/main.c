@@ -97,7 +97,7 @@ int main(void)
 
 	while(1)
 	{
-		if(button_pressed()) {
+		if(true || button_pressed()) {
 			printf("[renard-phy-s2lp-demo-stm32] Starting message transfer!\r\n");
 
 			/* Prepare uplink */
@@ -110,7 +110,7 @@ int main(void)
 			sfx_ul_plain uplink;
 			memcpy(uplink.payload, sigfox_payload, sizeof(sigfox_payload));
 			uplink.payloadlen = sizeof(sigfox_payload);
-			uplink.request_downlink = true;
+			uplink.request_downlink = false;//true;
 			uplink.singlebit = false;
 			uplink.replicas = true;
 
