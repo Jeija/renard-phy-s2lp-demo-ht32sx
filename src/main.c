@@ -57,14 +57,39 @@ void renard_phy_s2lp_hal_stm32_sysclk_init(void)
     sysclk_init();
 }
 
+static void led_init(void)
+{
+	__HAL_RCC_GPIOB_CLK_ENABLE();
+
+	GPIO_InitTypeDef gpioinitstruct;
+	gpioinitstruct.Pin = GPIO_PIN_0;
+	gpioinitstruct.Mode = GPIO_MODE_OUTPUT_PP;
+	gpioinitstruct.Speed = GPIO_SPEED_LOW;
+	gpioinitstruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOB, &gpioinitstruct);
+}
+
+static void led_off(void)
+{
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, true);
+}
+
+static void led_on(void)
+{
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, false);
+}
+
+static uint16_t seqnum = 0;
 uint16_t next_seqnum(void)
 {
-	uint16_t seqnum = *((uint8_t *)SEQNUM_ADDR);
+	/*uint16_t seqnum = *((uint8_t *)SEQNUM_ADDR);
 	seqnum = (seqnum + 1) % 0xfff;
 
 	HAL_FLASHEx_DATAEEPROM_Unlock();
 	HAL_FLASHEx_DATAEEPROM_Program(TYPEPROGRAMDATA_WORD, SEQNUM_ADDR, seqnum);
-	HAL_FLASHEx_DATAEEPROM_Lock();
+	HAL_FLASHEx_DATAEEPROM_Lock();*/
+
+	seqnum = (seqnum + 1) % 0xfff;
 
 	return seqnum;
 }
@@ -77,6 +102,7 @@ int main(void)
 	systick_delay_init();
 	button_init();
 	uart_init(115200);
+	led_init();
 	systick_delay_ms(10);
 
 	/* S2-LP SPI communication initialization */
@@ -97,7 +123,9 @@ int main(void)
 
 	while(1)
 	{
-		if(true || button_pressed()) {
+		if(button_pressed()) {
+			led_off();
+			systick_delay_ms(1000);
 			printf("[renard-phy-s2lp-demo-stm32] Starting message transfer!\r\n");
 
 			/* Prepare uplink */
@@ -137,6 +165,7 @@ int main(void)
 			} else {
 				printf("[renard-phy-s2lp-demo-stm32] Unknown protocol error occurred\r\n");
 			}
+			led_on();
 		}
 	}
 }

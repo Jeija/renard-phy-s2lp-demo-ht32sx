@@ -77,15 +77,6 @@ SECTIONS
     . = ALIGN(4);
   } >ROM
 
-
-	.noinit (NOLOAD) : AT(0x08081000)
-	{
-		. = ALIGN(4);
-		*(.noinit.sigfox_board_data)
-		*(.noinit.sigfox_nvm_data)
-		*(.noinit*);
-	} > BLOCK_SIGFOXUSER_FLASH_DATA
-
   /* The program code and other data into "ROM" Rom type memory */
   .text :
   {

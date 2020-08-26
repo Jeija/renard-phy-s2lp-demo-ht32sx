@@ -11,7 +11,6 @@ DEBUG = 1
 # optimization
 OPT = -Og
 
-
 #######################################
 # paths
 #######################################
@@ -30,7 +29,7 @@ $(wildcard $(SRCDIR_APP)/*.c) \
 $(wildcard $(LIBDIR_APP)/stm32lib/STM32L0xx_HAL_Driver/Src/*.c) \
 $(LIBDIR_APP)/stm32lib/CMSIS/STM32L0xx/Source/Templates/system_stm32l0xx.c
 
-ASM_SOURCES = $(LIBDIR_APP)/stm32lib/CMSIS/STM32L0xx/Source/Templates/gcc/startup_stm32l053xx.s
+ASM_SOURCES = $(LIBDIR_APP)/stm32lib/CMSIS/STM32L0xx/Source/Templates/gcc/startup_stm32l052xx.s
 
 #######################################
 # renard-phy-s2lp
@@ -65,7 +64,7 @@ OPENOCD = openocd
 # CFLAGS
 #######################################
 # Architecture-specific configuration
-ARCH_DEFS = -DUSE_HAL_DRIVER -DSTM32L053xx
+ARCH_DEFS = -DUSE_HAL_DRIVER -DSTM32L052xx
 
 ARCH_INCLUDES = \
 -I$(CFGDIR_APP) \
