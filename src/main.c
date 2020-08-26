@@ -8,21 +8,18 @@
 #include "renard_phy_s2lp.h"
 
 /* Application */
+#include "eeprom_credentials.h"
 #include "systick_delay.h"
 #include "button.h"
 #include "uart.h"
 
 #define SEQNUM_ADDR (DATA_EEPROM_BASE + 0)
 
-/* ***PUT YOUR SIGFOX CREDENTIALS HERE*** */
-uint8_t sigfox_key[] = {0x47, 0x9e, 0x44, 0x80, 0xfd, 0x75, 0x96, 0xd4, 0x5b, 0x01, 0x22, 0xfd, 0x28, 0x2d, 0xb3, 0xcf};
-uint32_t sigfox_devid = 0x004d33db;
-uint8_t sigfox_payload[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x12, 0x34, 0x56};
-
 /* *** Test credentials for testing with Sigfox RSA (Radio Signal Analyzer) *** */
-/*uint8_t sigfox_key[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
-uint32_t sigfox_devid = 0xfedcba98;
-uint8_t sigfox_payload[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00};*/
+uint8_t sigfox_test_nak[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
+uint32_t sigfox_test_devid = 0xfedcba98;
+
+uint8_t sigfox_payload[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00};
 
 void sysclk_init(void)
 {
@@ -56,6 +53,13 @@ void renard_phy_s2lp_hal_stm32_sysclk_init(void)
 {
     sysclk_init();
 }
+
+void print_hex_buffer(uint8_t *buf, uint8_t len)
+{
+	for (uint8_t i = 0; i < len; ++i)
+		printf("%02x", buf[i]);
+}
+
 
 static void led_init(void)
 {
@@ -106,33 +110,59 @@ int main(void)
 	systick_delay_ms(10);
 
 	/* S2-LP SPI communication initialization */
-	printf("[renard-phy-s2lp-demo-stm32] Initializing S2-LP...\r\n");
+	printf("[renard-phy-s2lp-demo-ht32sx] Initializing S2-LP...\r\n");
 
 	while (!renard_phy_s2lp_init()) {
-		printf("[renard-phy-s2lp-demo-stm32] Initialization FAIL - S2-LP not responding!\r\n");
-		printf("[renard-phy-s2lp-demo-stm32] Retrying initialization in 1s...\r\n");
+		printf("[renard-phy-s2lp-demo-ht32sx] Initialization FAIL - S2-LP not responding!\r\n");
+		printf("[renard-phy-s2lp-demo-ht32sx] Retrying initialization in 1s...\r\n");
 		systick_delay_ms(1000);
 	}
-	printf("[renard-phy-s2lp-demo-stm32] Initialization OK, S2-LP detected!\r\n");
+	printf("[renard-phy-s2lp-demo-ht32sx] Initialization OK, S2-LP detected!\r\n");
 
 	/* Use current sequence number as (really bad) entropy source for uplink frequency randomization */
 	uint16_t current_seqnum = next_seqnum();
 	renard_phy_s2lp_protocol_init(current_seqnum, UL_DATARATE_100BPS);
 
-	printf("[renard-phy-s2lp-demo-stm32] Initialization complete!\r\n");
+	/* Retrieve factory-provisioned Sigfox credentials from on-chip EEPROM */
+	uint32_t sigfox_devid;
+	uint8_t *sigfox_nak;
+
+	uint32_t provisioned_devid;
+	uint8_t provisioned_pac[8];
+	uint8_t provisioned_nak[16];
+	if(eeprom_credentials_read(&provisioned_devid, provisioned_pac, provisioned_nak)) {
+		printf("[renard-phy-s2lp-demo-ht32sx] Using factory-provisioned Sigfox credentials:\r\n");
+		printf("[renard-phy-s2lp-demo-ht32sx]     ID : %08lx   PAC: ", provisioned_devid);
+		print_hex_buffer(provisioned_pac, sizeof(provisioned_pac));
+		printf("\r\n");
+		printf("[renard-phy-s2lp-demo-ht32sx]     NAK: ");
+		print_hex_buffer(provisioned_nak, sizeof(provisioned_nak));
+		printf("\r\n");
+
+		sigfox_nak = provisioned_nak;
+		sigfox_devid = provisioned_devid;
+	} else {
+		printf("[renard-phy-s2lp-demo-ht32sx] Couldn't read provisioned Sigfox credentials (corrupted EEPROM, wrong data");
+		printf("[renard-phy-s2lp-demo-ht32sx] offset or unknown encryption mode), falling back to test credentials.");
+
+		sigfox_nak = sigfox_test_nak;
+		sigfox_devid = sigfox_test_devid;
+	}
+
+	printf("[renard-phy-s2lp-demo-ht32sx] Initialization complete!\r\n");
 
 	while(1)
 	{
 		if(button_pressed()) {
 			led_off();
 			systick_delay_ms(1000);
-			printf("[renard-phy-s2lp-demo-stm32] Starting message transfer!\r\n");
+			printf("[renard-phy-s2lp-demo-ht32sx] Starting message transfer!\r\n");
 
 			/* Prepare uplink */
 			sfx_commoninfo common;
 			common.seqnum = current_seqnum;
 			common.devid = sigfox_devid;
-			memcpy(common.key, sigfox_key, 16);
+			memcpy(common.key, sigfox_nak, 16);
 			current_seqnum = next_seqnum();
 
 			sfx_ul_plain uplink;
@@ -148,22 +178,22 @@ int main(void)
 
 			if (err == PROTOCOL_ERROR_NONE) {
 				if (uplink.request_downlink) {
-					printf("[renard-phy-s2lp-demo-stm32] Downlink received!\r\n");
-					printf("[renard-phy-s2lp-demo-stm32] Downlink RSSI    : %d\r\n", downlink_rssi);
-					printf("[renard-phy-s2lp-demo-stm32] Downlink payload : ");
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink received!\r\n");
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink RSSI    : %d\r\n", downlink_rssi);
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink payload : ");
 					for (int i = 0; i < SFX_DL_PAYLOADLEN; i++)
 						printf("%02x", downlink.payload[i]);
 					printf("\r\n");
-					printf("[renard-phy-s2lp-demo-stm32] Downlink CRC OK  : %d\r\n", downlink.crc_ok);
-					printf("[renard-phy-s2lp-demo-stm32] Downlink MAC OK  : %d\r\n", downlink.mac_ok);
-					printf("[renard-phy-s2lp-demo-stm32] Downlink FEC Use : %d\r\n", downlink.fec_corrected);
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink CRC OK  : %d\r\n", downlink.crc_ok);
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink MAC OK  : %d\r\n", downlink.mac_ok);
+					printf("[renard-phy-s2lp-demo-ht32sx] Downlink FEC Use : %d\r\n", downlink.fec_corrected);
 				} else {
-					printf("[renard-phy-s2lp-demo-stm32] Uplink transmitted, no downlink requested.\r\n");
+					printf("[renard-phy-s2lp-demo-ht32sx] Uplink transmitted, no downlink requested.\r\n");
 				}
 			} else if (err == PROTOCOL_ERROR_TIMEOUT) {
-				printf("[renard-phy-s2lp-demo-stm32] Timeout while waiting for downlink\r\n");
+				printf("[renard-phy-s2lp-demo-ht32sx] Timeout while waiting for downlink\r\n");
 			} else {
-				printf("[renard-phy-s2lp-demo-stm32] Unknown protocol error occurred\r\n");
+				printf("[renard-phy-s2lp-demo-ht32sx] Unknown protocol error occurred\r\n");
 			}
 			led_on();
 		}
