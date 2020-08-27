@@ -13,7 +13,13 @@
 #include "button.h"
 #include "uart.h"
 
-#define SEQNUM_ADDR (DATA_EEPROM_BASE + 0)
+/*
+ * Sequence number storage location:
+ * This won't overwrite possibly existing data in EEPROM (from STMicro's official demos), but it also won't use their
+ * NVM storage. This solution here is sub-optimal because it keeps overwriting the same EEPROM location, so it will
+ * eventually fail. TODO: Implement or integrate STMicro's official NVM reader / writer.
+ */
+#define SEQNUM_ADDR (DATA_EEPROM_BASE + 0x200)
 
 /* *** Test credentials for testing with Sigfox RSA (Radio Signal Analyzer) *** */
 uint8_t sigfox_test_nak[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF};
@@ -83,17 +89,14 @@ static void led_on(void)
 	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_0, false);
 }
 
-static uint16_t seqnum = 0;
 uint16_t next_seqnum(void)
 {
-	/*uint16_t seqnum = *((uint8_t *)SEQNUM_ADDR);
+	uint16_t seqnum = *((uint8_t *)SEQNUM_ADDR);
 	seqnum = (seqnum + 1) % 0xfff;
 
 	HAL_FLASHEx_DATAEEPROM_Unlock();
 	HAL_FLASHEx_DATAEEPROM_Program(TYPEPROGRAMDATA_WORD, SEQNUM_ADDR, seqnum);
-	HAL_FLASHEx_DATAEEPROM_Lock();*/
-
-	seqnum = (seqnum + 1) % 0xfff;
+	HAL_FLASHEx_DATAEEPROM_Lock();
 
 	return seqnum;
 }
@@ -121,7 +124,7 @@ int main(void)
 
 	/* Use current sequence number as (really bad) entropy source for uplink frequency randomization */
 	uint16_t current_seqnum = next_seqnum();
-	renard_phy_s2lp_protocol_init(current_seqnum, UL_DATARATE_100BPS);
+	renard_phy_s2lp_protocol_init(current_seqnum);
 
 	/* Retrieve factory-provisioned Sigfox credentials from on-chip EEPROM */
 	uint32_t sigfox_devid;
@@ -168,13 +171,14 @@ int main(void)
 			sfx_ul_plain uplink;
 			memcpy(uplink.payload, sigfox_payload, sizeof(sigfox_payload));
 			uplink.payloadlen = sizeof(sigfox_payload);
-			uplink.request_downlink = false;//true;
+			uplink.request_downlink = true;
 			uplink.singlebit = false;
 			uplink.replicas = true;
 
 			sfx_dl_plain downlink;
 			int16_t downlink_rssi;
-			int err = renard_phy_s2lp_protocol_transfer(&common, &uplink, &downlink, &downlink_rssi);
+			int err = renard_phy_s2lp_protocol_transfer(&common, &uplink, &downlink, PROFILE_RC1, UL_DATARATE_100BPS,
+					&downlink_rssi);
 
 			if (err == PROTOCOL_ERROR_NONE) {
 				if (uplink.request_downlink) {
@@ -192,6 +196,8 @@ int main(void)
 				}
 			} else if (err == PROTOCOL_ERROR_TIMEOUT) {
 				printf("[renard-phy-s2lp-demo-ht32sx] Timeout while waiting for downlink\r\n");
+			} else if (err == PROTOCOL_ERROR_INVALID_PROFILE) {
+				printf("[renard-phy-s2lp-demo-ht32sx] Provided uplink baud rate not allowed for RC profile\r\n");
 			} else {
 				printf("[renard-phy-s2lp-demo-ht32sx] Unknown protocol error occurred\r\n");
 			}

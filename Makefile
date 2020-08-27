@@ -63,8 +63,11 @@ OPENOCD = openocd
 #######################################
 # CFLAGS
 #######################################
+# renard-phy-s2lp and renard-phy-s2lp-hal-stm32 configuration options: use HT32SX pinout, use HT32SX FEM
+CONFIG_DEFS = -DRENARD_PHY_S2LP_CONF_HT32SX -DRENARD_PHY_S2LP_HAL_STM32_CONF_HT32SX
+
 # Architecture-specific configuration
-ARCH_DEFS = -DUSE_HAL_DRIVER -DSTM32L052xx
+ARCH_DEFS = -DUSE_HAL_DRIVER -DSTM32L052xx $(CONFIG_DEFS)
 
 ARCH_INCLUDES = \
 -I$(CFGDIR_APP) \

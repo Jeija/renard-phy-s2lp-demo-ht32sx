@@ -6,7 +6,8 @@
 
 #define rev_endian32(num) ((num >> 24) & 0xff) | ((num << 8) & 0xff0000) | ((num >> 8) & 0xff00) | ((num << 24) & 0xff000000);
 
-// TODO: Sort out where to put AES function somehow...
+// TODO: Currently simply reuses librenard's AES function, this is a dirty hack
+void renard_aes_enc_dec(unsigned char *state, const unsigned char *Localkey, unsigned char dir);
 
 /* 
  * Return value:
